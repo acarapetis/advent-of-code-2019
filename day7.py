@@ -40,11 +40,11 @@ def loop_signal(phases):
     v = 0
     try:
         while True:
-            A.send(v)
-            B.send(A.read())
-            C.send(B.read())
-            D.send(C.read())
-            E.send(D.read())
+            A.write(v)
+            B.write(A.read())
+            C.write(B.read())
+            D.write(C.read())
+            E.write(D.read())
             v = E.read()
     except Terminated:
         return v

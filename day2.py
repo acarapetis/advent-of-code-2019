@@ -1,27 +1,13 @@
 #!/usr/bin/python3
 
 import sys
+from intcode import IntCode
 
-data = sys.stdin.read()
-code = [int(s) for s in data.split(',')]
-
-i = 0
+code = sys.stdin.read()
 
 def result(noun, verb):
-    mem = code.copy()
-    mem[1] = noun
-    mem[2] = verb
-    op = iter(mem)
-    while True:
-        x = next(op)
-        if x == 99:
-            return mem[0]
-        elif x == 1:
-            out = mem[next(op)] + mem[next(op)]
-            mem[next(op)] = out
-        elif x == 2:
-            out = mem[next(op)] * mem[next(op)]
-            mem[next(op)] = out
+    computer = IntCode(code, noun=noun, verb=verb)
+    return computer.run()
 
 def invert(target):
     for noun in range(99):

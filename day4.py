@@ -2,9 +2,7 @@
 
 import sys, re
 
-start = int(sys.stdin.read(6))
-sys.stdin.read(1)
-end = int(sys.stdin.read(6))
+start, end = map(int, re.findall(r'\d+', sys.stdin.read()))
 
 # Brute force ahoy
 

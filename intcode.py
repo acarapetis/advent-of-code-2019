@@ -72,9 +72,9 @@ class IntCode:
             elif v is not None:
                 return None
 
-    def send(self, value):
+    def write(self, value):
         def bad(v):
-            raise IOCollision("Tried to send when computer is trying to output")
+            raise IOCollision("Tried to write when output is waiting to be consumed")
         self.output = bad
 
         sent = False
