@@ -7,6 +7,18 @@ def log(*a, **kw):
 
 class Terminated(Exception): pass
 class IOCollision(Exception): pass
+
+class Memory(list):
+    def __setitem__(self, index, value):
+        if index >= len(self):
+            self.extend([0]*(index + 1 - len(self)))
+        return list.__setitem__(self, index, value)
+
+    def __getitem__(self, index):
+        if index >= len(self):
+            self.extend([0]*(index + 1 - len(self)))
+        return list.__getitem__(self, index)
+
     
 class IntCode:
     def __init__(self, code, noun=None, verb=None,
@@ -29,7 +41,8 @@ class IntCode:
         log(msg, *a, **kw)
 
     def reset(self):
-        self.mem = self.code.copy()
+        self.rel_base = 0
+        self.mem = Memory(self.code.copy())
         self.i = 0
 
     def _incr(self):
@@ -108,11 +121,19 @@ class IntCode:
             if count is not None:
                 return tuple(_param() for c in range(count))
             p = self._incr()
-            if pmode.pop() == '0':
+            mode = int(pmode.pop())
+            if mode == 0:
                 return mem[p]
+            elif mode == 1:
+                return p
+            else:
+                return mem[p+self.rel_base]
+
             return p
         def _write(v):
-            mem[self._incr()] = v
+            p = self._incr()
+            j = p + self.rel_base if int(pmode.pop()) == 2 else p
+            mem[j] = v
 
         if opcode == 99:
             self._log(f"TERMINATE", plain=True)
@@ -151,6 +172,8 @@ class IntCode:
         elif opcode == 8:
             a, b = _param(2)
             _write(1 if a==b else 0)
+        elif opcode == 9:
+            self.rel_base += _param()
 
 
 
