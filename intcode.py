@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+from multiprocessing import Process, Pipe
+import sys
 
 DEBUG = False
 def log(*a, **kw):
@@ -19,6 +21,44 @@ class Memory(list):
             self.extend([0]*(index + 1 - len(self)))
         return list.__getitem__(self, index)
 
+class IntProc:
+    def __init__(self, code=None):
+        if not code:
+            code = sys.stdin.read()
+        if isinstance(code, (str, bytes)):
+            code = [int(s) for s in code.split(',')]
+        self.code = code
+        self.reset()
+
+    def reset(self):
+        self.pipe, pchild = Pipe()
+        self.worker = Process(target=intcode_worker,
+                              args=(self.code, pchild, self.pipe))
+        self.worker.start()
+        pchild.close()
+    
+    def read(self):
+        return self.pipe.recv()
+
+    def write(self, v):
+        return self.pipe.send(v)
+
+    def join(self):
+        return self.worker.join()
+
+    def is_alive(self):
+        return self.worker.is_alive()
+
+    def poll(self):
+        return self.pipe.poll()
+
+def intcode_worker(code, pipe, parent_pipe):
+    parent_pipe.close()
+    IntCode(code,
+            input=pipe.recv,
+            output=pipe.send).run()
+    pipe.close()
+    sys.exit(0)
     
 class IntCode:
     def __init__(self, code, noun=None, verb=None,
