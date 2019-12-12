@@ -23,6 +23,7 @@ class Memory(list):
 
 class IntProc:
     def __init__(self, code=None):
+        """Run an IntCode machine in a separate process."""
         if not code:
             code = sys.stdin.read()
         if isinstance(code, (str, bytes)):
@@ -31,6 +32,10 @@ class IntProc:
         self.reset()
 
     def reset(self):
+        if hasattr(self, 'worker'):
+            self.worker.terminate()
+        if hasattr(self, 'pipe'):
+            self.pipe.close()
         self.pipe, pchild = Pipe()
         self.worker = Process(target=intcode_worker,
                               args=(self.code, pchild, self.pipe))
@@ -57,7 +62,8 @@ def intcode_worker(code, pipe, parent_pipe):
     IntCode(code,
             input=pipe.recv,
             output=pipe.send).run()
-    pipe.close()
+    import os
+    os.close(pipe.fileno())
     sys.exit(0)
     
 class IntCode:

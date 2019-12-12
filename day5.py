@@ -1,8 +1,11 @@
 #!/usr/bin/python3
 
-import sys
-from intcode import IntCode
+from intcode import IntProc
 
-code = sys.stdin.read()
-print(IntCode(code).run(1, True))
-print(IntCode(code).run(5, True))
+machine = IntProc()
+machine.write(1)
+while True:
+    try:
+        print(machine.read())
+    except EOFError:
+        break
