@@ -382,3 +382,30 @@ class AsyncIntCode:
             self._log(f"REL += {p}", plain=True)
         else:
             raise BadOpcode(opcode)
+
+from functools import wraps
+def grouped(N):
+    def decorator(func):
+        buf = []
+
+        @wraps(func)
+        async def wrapped(v):
+            nonlocal buf
+            buf.append(v)
+            if len(buf) == N:
+                ret = await func(*buf)
+                buf = []
+                return ret
+
+        return wrapped
+    return decorator
+
+def buffered(func):
+    buf = []
+
+    @wraps(func)
+    async def wrapped(v):
+        nonlocal buf
+        buf.append(v)
+        return await func(buf)
+    return wrapped

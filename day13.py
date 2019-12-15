@@ -39,20 +39,17 @@ outbuf = []
 
 import asyncio
 
-async def handle_output(v):
-    global outbuf, score, ball, paddle
-    outbuf.append(v)
-    if len(outbuf) == 3:
-        x, y, t = outbuf
-        outbuf = []
-        if x == -1 and y == 0:
-            score = t
-        else:
-            canvas[(x,y)] = t
-            if t == BALL:
-                ball = x
-            elif t == PADDLE:
-                paddle = x
+@intcode.grouped(3)
+async def handle_output(x, y, t):
+    global score, ball, paddle
+    if x == -1 and y == 0:
+        score = t
+    else:
+        canvas[(x,y)] = t
+        if t == BALL:
+            ball = x
+        elif t == PADDLE:
+            paddle = x
 
 async def provide_input():
     return cmp(ball, paddle)
