@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Value
 import sys
 
 DEBUG = False
@@ -37,11 +37,18 @@ class IntProc:
             self.worker.terminate()
         if hasattr(self, 'pipe'):
             self.pipe.close()
+        self._blocked = Value('b')
+        self._blocked.value = False
         self.pipe, pchild = Pipe()
         self.worker = Process(target=intcode_worker,
-                              args=(self.code, pchild, self.pipe))
+                              args=(self.code, pchild,
+                                    self.pipe, self._blocked))
         self.worker.start()
         pchild.close()
+
+    @property
+    def blocked(self):
+        return self._blocked.value
     
     def read(self, n=None):
         if n is not None:
@@ -67,10 +74,16 @@ class IntProc:
         while not self.pipe.poll(v):
             pass
 
-def intcode_worker(code, pipe, parent_pipe):
+def intcode_worker(code, pipe, parent_pipe, blocked):
+    def recv():
+        if not pipe.poll():
+            blocked.value = True
+        v = pipe.recv()
+        blocked.value = False
+        return v
     parent_pipe.close()
     IntCode(code,
-            input=pipe.recv,
+            input=recv,
             output=pipe.send).run()
     import os
     os.close(pipe.fileno())
