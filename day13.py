@@ -53,9 +53,6 @@ try:
         #display(canvas, SYMBOLS, ydir=-1)
         block_count = sum(1 for x in canvas.values()
                           if x == BLOCK)
-        print(f"SCORE: {score}; BLOCKS: {block_count}")
-        if block_count < 4:
-            intcode.DEBUG = True
         if not block_count:
             # We won!
             break
@@ -69,9 +66,7 @@ try:
         #print(f"JOYSTICK: {jin}")
         machine.write(jin)
         machine.wait_for_output()
-
 except (intcode.Terminated, BrokenPipeError):
-    from traceback import print_exc
-    print_exc()
+    pass
 finally:
     print(score)
