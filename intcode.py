@@ -7,7 +7,8 @@ def log(*a, **kw):
     if DEBUG:
         print(*a, **kw)
 
-class Terminated(Exception): pass
+class BadOpcode(ValueError): pass
+class Terminated(EOFError): pass
 class IOCollision(Exception): pass
 
 class Memory(list):
@@ -42,8 +43,13 @@ class IntProc:
         self.worker.start()
         pchild.close()
     
-    def read(self):
-        return self.pipe.recv()
+    def read(self, n=None):
+        if n is not None:
+            return tuple(self.read() for _ in range(n))
+        try:
+            return self.pipe.recv()
+        except (EOFError, ConnectionResetError) as e:
+            raise Terminated(e)
 
     def write(self, v):
         return self.pipe.send(v)
@@ -54,8 +60,12 @@ class IntProc:
     def is_alive(self):
         return self.worker.is_alive()
 
-    def poll(self):
-        return self.pipe.poll()
+    def poll(self, v=None):
+        return self.pipe.poll(v)
+
+    def wait_for_output(self, v=0.00001):
+        while not self.pipe.poll(v):
+            pass
 
 def intcode_worker(code, pipe, parent_pipe):
     parent_pipe.close()
@@ -82,8 +92,10 @@ class IntCode:
         self.reset()
 
     def _log(self, msg, *a, plain=False, **kw):
+        n = str(self.name or '')
+        if n: n += ' '
         if not plain:
-            msg = f'{self.name} {msg}'
+            msg = f'{n}{msg}'
         log(msg, *a, **kw)
 
     def reset(self):
@@ -159,10 +171,11 @@ class IntCode:
 
     def _tick(self):
         mem = self.mem
+        i = self.i
         icode = self._incr()
         opcode = icode % 100
         pmode = list('{:03d}'.format(icode // 100))
-        self._log(f"EXEC {''.join(pmode)} {opcode}: ", end='')
+        self._log(f"EXEC@{i:03d} {''.join(pmode)} {opcode}: ", end='')
         def _param(count=None):
             if count is not None:
                 return tuple(_param() for c in range(count))
@@ -174,8 +187,8 @@ class IntCode:
                 return p
             else:
                 return mem[p+self.rel_base]
-
             return p
+
         def _write(v):
             p = self._incr()
             j = p + self.rel_base if int(pmode.pop()) == 2 else p
@@ -206,21 +219,27 @@ class IntCode:
             cond, pos = _param(2)
             if cond:
                 self.i = pos
-                self._log(f"JUMP {pos}", plain=True)
+                self._log(f"JNZ {cond} => JUMP {pos}", plain=True)
+            else:
+                self._log(f"JNZ {cond} => NO JUMP", plain=True)
         elif opcode == 6:
             cond, pos = _param(2)
             if not cond:
                 self.i = pos
-                self._log(f"JUMP {pos}", plain=True)
+                self._log(f"JZ {cond} => JUMP {pos}", plain=True)
+            else:
+                self._log(f"JZ {cond} => NO JUMP", plain=True)
         elif opcode == 7:
             a, b = _param(2)
             _write(1 if a<b else 0)
+            self._log(f"CMP {a}<{b}", plain=True)
         elif opcode == 8:
             a, b = _param(2)
             _write(1 if a==b else 0)
+            self._log(f"CMP {a}=={b}", plain=True)
         elif opcode == 9:
-            self.rel_base += _param()
-
-
-
-
+            p = _param()
+            self.rel_base += p
+            self._log(f"REL += {p}", plain=True)
+        else:
+            raise BadOpcode(opcode)

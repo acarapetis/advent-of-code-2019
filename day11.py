@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import sys
-from intcode import IntProc
+from intcode import IntProc, Terminated
 from collections import defaultdict
 
 code = sys.stdin.read()
@@ -27,7 +27,7 @@ def run_robot(starting_color=0):
             canvas[pos] = cpu.read()
             rotate(cpu.read())
             move()
-        except EOFError:
+        except Terminated:
             return canvas
 
 print(len(run_robot(0)))
