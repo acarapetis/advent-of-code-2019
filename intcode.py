@@ -256,3 +256,129 @@ class IntCode:
             self._log(f"REL += {p}", plain=True)
         else:
             raise BadOpcode(opcode)
+
+
+import asyncio
+class AsyncIntCode:
+    def __init__(self, code,
+                 input=None, output=None, name='',
+                 raise_on_terminate=False):
+        if isinstance(code, (str, bytes)):
+            code = [int(s) for s in code.split(',')]
+        self.code = list(code)
+        self.input = input
+        self.output = output
+        self.name = name
+        self.raise_on_terminate = raise_on_terminate
+        self.reading = False
+        self.writing = False
+
+    def _log(self, msg, *a, plain=False, **kw):
+        n = str(self.name or '')
+        if n: n += ' '
+        if not plain:
+            msg = f'{n}{msg}'
+        log(msg, *a, **kw)
+
+    def reset(self):
+        self.rel_base = 0
+        self.mem = Memory(self.code.copy())
+        self.i = 0
+
+    def _incr(self):
+        v = self.mem[self.i]
+        self.i += 1
+        return v
+
+    async def run(self):
+        self.reset()
+        while True:
+            v = await self._tick()
+            if v is not None:
+                print(f"FINAL {v}")
+                return
+
+    async def _input(self):
+        self.reading = True
+        return await self.input()
+        self.reading = False
+
+    async def _output(self, v):
+        self.writing = True
+        return await self.output(v)
+        self.writing = False
+
+    async def _tick(self):
+        mem = self.mem
+        i = self.i
+        icode = self._incr()
+        opcode = icode % 100
+        pmode = list('{:03d}'.format(icode // 100))
+        self._log(f"EXEC@{i:03d} {''.join(pmode)} {opcode}: ", end='')
+        def _param(count=None):
+            if count is not None:
+                return tuple(_param() for c in range(count))
+            p = self._incr()
+            mode = int(pmode.pop())
+            if mode == 0:
+                return mem[p]
+            elif mode == 1:
+                return p
+            else:
+                return mem[p+self.rel_base]
+            return p
+
+        def _write(v):
+            p = self._incr()
+            j = p + self.rel_base if int(pmode.pop()) == 2 else p
+            mem[j] = v
+
+        if opcode == 99:
+            self._log(f"TERMINATE", plain=True)
+            if self.raise_on_terminate:
+                raise Terminated(mem)
+            return mem[0]
+        elif opcode == 1:
+            a, b = _param(2)
+            self._log(f"ADD {a} {b}", plain=True)
+            _write(a+b)
+        elif opcode == 2:
+            a, b = _param(2)
+            self._log(f"MUL {a} {b}", plain=True)
+            _write(a*b)
+        elif opcode == 3:
+            v = await self._input()
+            self._log(f"INPUT {v}", plain=True)
+            _write(v)
+        elif opcode == 4:
+            o = _param()
+            self._log(f"OUTPUT {o}", plain=True)
+            await self._output(o)
+        elif opcode == 5:
+            cond, pos = _param(2)
+            if cond:
+                self.i = pos
+                self._log(f"JNZ {cond} => JUMP {pos}", plain=True)
+            else:
+                self._log(f"JNZ {cond} => NO JUMP", plain=True)
+        elif opcode == 6:
+            cond, pos = _param(2)
+            if not cond:
+                self.i = pos
+                self._log(f"JZ {cond} => JUMP {pos}", plain=True)
+            else:
+                self._log(f"JZ {cond} => NO JUMP", plain=True)
+        elif opcode == 7:
+            a, b = _param(2)
+            _write(1 if a<b else 0)
+            self._log(f"CMP {a}<{b}", plain=True)
+        elif opcode == 8:
+            a, b = _param(2)
+            _write(1 if a==b else 0)
+            self._log(f"CMP {a}=={b}", plain=True)
+        elif opcode == 9:
+            p = _param()
+            self.rel_base += p
+            self._log(f"REL += {p}", plain=True)
+        else:
+            raise BadOpcode(opcode)

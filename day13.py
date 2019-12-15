@@ -32,26 +32,35 @@ SYMBOLS = {
     BALL:   'O',
 }
 code[0] = 2
-machine = intcode.IntProc(code)
 score = 0
 ball = 0
 paddle = 0
-try:
-    while True:
-        while machine.poll(0.00001):
-            x, y, t = machine.read(3)
-            if x == -1 and y == 0:
-                score = t
-            else:
-                canvas[(x,y)] = t
-                if t == BALL:
-                    ball = x
-                elif t == PADDLE:
-                    paddle = x
+outbuf = []
 
-        if machine.blocked:
-            machine.write(cmp(ball, paddle))
-except (intcode.Terminated, BrokenPipeError):
-    pass
-finally:
+import asyncio
+
+async def handle_output(v):
+    global outbuf, score, ball, paddle
+    outbuf.append(v)
+    if len(outbuf) == 3:
+        x, y, t = outbuf
+        outbuf = []
+        if x == -1 and y == 0:
+            score = t
+        else:
+            canvas[(x,y)] = t
+            if t == BALL:
+                ball = x
+            elif t == PADDLE:
+                paddle = x
+
+async def provide_input():
+    return cmp(ball, paddle)
+
+cpu = intcode.AsyncIntCode(code, input=provide_input, output=handle_output)
+loop = asyncio.get_event_loop()
+try:
+    loop.run_until_complete(cpu.run())
     print(score)
+finally:
+    loop.close()
