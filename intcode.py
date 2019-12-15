@@ -32,9 +32,12 @@ class IntProc:
         self.code = code
         self.reset()
 
-    def reset(self):
+    def terminate(self):
         if hasattr(self, 'worker'):
             self.worker.terminate()
+
+    def reset(self):
+        self.terminate()
         if hasattr(self, 'pipe'):
             self.pipe.close()
         self._blocked = Value('b')
@@ -88,6 +91,16 @@ def intcode_worker(code, pipe, parent_pipe, blocked):
     import os
     os.close(pipe.fileno())
     sys.exit(0)
+
+def main():
+    with open(sys.argv[1], 'rt') as fh:
+        source = fh.read()
+    def input():
+        return int(sys.stdin.readline().strip())
+    def output(v):
+        print(v)
+    cpu = IntCode(source, input=input, output=output)
+    cpu.run()
     
 class IntCode:
     def __init__(self, code, noun=None, verb=None,
@@ -409,3 +422,14 @@ def buffered(func):
         buf.append(v)
         return await func(buf)
     return wrapped
+
+def run_async(code, input, output):
+    cpu = intcode.AsyncIntCode(code, input=input, output=output)
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(cpu.run())
+    finally:
+        loop.close()
+
+if __name__ == '__main__':
+    main()

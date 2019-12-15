@@ -11,6 +11,9 @@ canvas[droid] = 3
 
 directions = {(0,1): 1, (0,-1): 2, (-1,0): 3, (1,0): 4}
 
+def add(p,q):
+    return (p[0]+q[0],p[1]+q[1])
+
 def nbhd(p):
     return (add(p,q) for q in directions)
 
@@ -37,9 +40,6 @@ def astar_field(pt, ref=None):
         same = new == s
         s = new
     return field
-
-def add(p,q):
-    return (p[0]+q[0],p[1]+q[1])
 
 def move_towards(pt):
     f = astar_field(pt, droid)
@@ -73,7 +73,7 @@ while True:
     if result == 2:
         oxy = target
 
-machine.worker.terminate()
+machine.terminate()
 
 f = astar_field(oxy)
 print(f[(0,0)])
